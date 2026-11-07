@@ -11,7 +11,7 @@ smsSegments('Your code is 482913.');
 // { encoding: 'GSM-7', units: 20, segments: 1 }
 
 smsSegments('Don’t share this code');   // curly apostrophe
-// { encoding: 'UCS-2', units: 22, segments: 1 }
+// { encoding: 'UCS-2', units: 21, segments: 1 }
 
 nonGsmChars('Don’t share this code');
 // [ '’' ]
