@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SMS Character Counter: GSM-7 vs UCS-2 Segment Calculator</title>
+<meta name="description" content="Free SMS character counter. Paste a text message to see its encoding (GSM-7 or UCS-2), how many segments it uses, characters left, and which characters push it over the limit.">
+<link rel="canonical" href="https://saadulla.github.io/sms-segment-counter/">
+<meta property="og:title" content="SMS Character Counter: GSM-7 vs UCS-2 Segment Calculator">
+<meta property="og:description" content="See instantly how many SMS segments a message uses and which characters force UCS-2.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://saadulla.github.io/sms-segment-counter/">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"SMS Character Counter","url":"https://saadulla.github.io/sms-segment-counter/","applicationCategory":"DeveloperApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"description":"Counts SMS segments and detects GSM-7 or UCS-2 encoding in the browser."}
+</script>
+<style>
+:root{--bg:#fbfaf7;--fg:#1d1d1f;--muted:#5b5b60;--accent:#0b6bcb;--line:#e3e1dc;--card:#ffffff;--warn:#b54708;--warnbg:#fff4e5}
+@media (prefers-color-scheme:dark){:root{--bg:#141416;--fg:#ececee;--muted:#a3a3a8;--accent:#6cb4ff;--line:#2b2b30;--card:#1c1c20;--warn:#ffb86b;--warnbg:#3a2a16}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:760px;margin:0 auto;padding:32px 16px 64px}
+h1{font-size:1.9rem;line-height:1.25;margin:0 0 8px}
+h2{font-size:1.25rem;margin:36px 0 8px}
+p.lead{color:var(--muted);margin:0 0 20px}
+a{color:var(--accent)}
+textarea{width:100%;min-height:150px;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg);font:16px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;resize:vertical}
+textarea:focus{outline:2px solid var(--accent);outline-offset:1px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin:14px 0}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.stat b{display:block;font-size:1.5rem;font-variant-numeric:tabular-nums}
+.stat span{color:var(--muted);font-size:.85rem}
+.warn{background:var(--warnbg);color:var(--warn);border-radius:8px;padding:10px 12px;margin:10px 0;display:none}
+.warn code{background:rgba(127,127,127,.18);padding:1px 5px;border-radius:4px;color:var(--fg)}
+button{font:inherit;padding:8px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer}
+button:hover{border-color:var(--accent)}
+table{border-collapse:collapse;width:100%;font-size:.95rem} th,td{border-bottom:1px solid var(--line);padding:8px 6px;text-align:left}
+footer{margin-top:48px;color:var(--muted);font-size:.9rem}
+</style>
+</head>
+<body>
+<main>
+<h1>SMS character counter</h1>
+<p class="lead">Paste or type a text message. The counter shows whether it is sent as GSM-7 or UCS-2, how many SMS segments it uses and which characters cost you an extra part. Everything runs in your browser; nothing is sent anywhere.</p>
+
+<label for="msg"><strong>Your message</strong></label>
+<textarea id="msg" spellcheck="false">Your Example code is 482913. It expires in 10 minutes. Don't share it with anyone.</textarea>
+
+<div class="stats" aria-live="polite">
+  <div class="stat"><b id="enc">GSM-7</b><span>encoding</span></div>
+  <div class="stat"><b id="chars">0</b><span>characters</span></div>
+  <div class="stat"><b id="units">0</b><span>septets / code units</span></div>
+  <div class="stat"><b id="segs">1</b><span>SMS segments</span></div>
+  <div class="stat"><b id="left">0</b><span>left in this segment</span></div>
+</div>
+<div class="warn" id="warn"></div>
+<p><button id="fix" type="button">Replace smart quotes and dashes</button></p>
+
+<h2>How SMS length is counted</h2>
+<table>
+<thead><tr><th>Encoding</th><th>One SMS</th><th>Each part of a long SMS</th></tr></thead>
+<tbody>
+<tr><td>GSM-7 (plain Latin text)</td><td>160 characters</td><td>153 characters</td></tr>
+<tr><td>UCS-2 (any other character)</td><td>70 characters</td><td>67 characters</td></tr>
+</tbody>
+</table>
+<p>A single character outside the GSM-7 alphabet, such as a curly apostrophe, an emoji or a Cyrillic letter, switches the whole message to UCS-2. Characters like <code>€ [ ] { } ~ ^ \ |</code> stay in GSM-7 but count as two. Long messages need a small header in each part, which is why the per-part limits are lower. Some providers split messages slightly differently, so treat the result as a close estimate.</p>
+<p>The full explanation, with tests, is in <a href="sms-character-limit.html">SMS character limit: GSM-7 vs UCS-2 and a segment counter in JavaScript</a>. The code is on <a href="https://github.com/Saadulla/sms-segment-counter">GitHub</a> under the MIT licence.</p>
+
+<h2>Checking real delivery</h2>
+<p>A counter tells you what you will pay for, not how a phone displays the message. To see a real text arrive, send it to a test number. Free public numbers on <a href="https://tempsmss.com/">Temp SMS</a> show incoming messages on a web page with no sign-up; anyone can read them, so use them only for test messages.</p>
+
+<footer>
+<p>More guides: <a href="https://saadulla.github.io/sms-otp-testing-examples/sms-delivery-failures.html">Why SMS messages fail to deliver</a> · <a href="https://tempsmss-guides.pages.dev/alphanumeric-sender-id">Alphanumeric sender ID explained</a> · <a href="https://saadulla.github.io/sms-otp-testing-examples/">Testing SMS OTP in Python with pytest</a></p>
+</footer>
+</main>
+<script>
+const GSM7_BASIC = new Set('@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !"#¤%&\'()*+,-./0123456789:;<=>?' + '¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà');
+const GSM7_EXTENDED = new Set('\f^{}\\[~]|€');
+function smsSegments(text) {
+  const chars = Array.from(text);
+  const gsm7 = chars.every((c) => GSM7_BASIC.has(c) || GSM7_EXTENDED.has(c));
+  const costs = chars.map((c) => (gsm7 ? (GSM7_EXTENDED.has(c) ? 2 : 1) : c.length));
+  const units = costs.reduce((s, n) => s + n, 0);
+  const single = gsm7 ? 160 : 70, perPart = gsm7 ? 153 : 67;
+  let segments = 1, used = units;
+  if (units > single) {
+    used = 0;
+    for (const n of costs) { if (used + n > perPart) { segments += 1; used = 0; } used += n; }
+  }
+  const cap = units > single ? perPart : single;
+  return { encoding: gsm7 ? 'GSM-7' : 'UCS-2', chars: chars.length, units, segments, left: Math.max(0, cap - used) };
+}
+const nonGsm = (t) => [...new Set(Array.from(t).filter((c) => !GSM7_BASIC.has(c) && !GSM7_EXTENDED.has(c)))];
+const $ = (id) => document.getElementById(id);
+function show(c) {
+  if (c === '\n') return '\\n';
+  if (c === ' ') return 'non-breaking space';
+  const hex = c.codePointAt(0).toString(16).toUpperCase().padStart(4, '0');
+  return c + ' (U+' + hex + ')';
+}
+function update() {
+  const t = $('msg').value, r = smsSegments(t), bad = nonGsm(t);
+  $('enc').textContent = r.encoding; $('chars').textContent = r.chars; $('units').textContent = r.units;
+  $('segs').textContent = t.length ? r.segments : 0; $('left').textContent = r.left;
+  const w = $('warn');
+  if (bad.length) {
+    w.style.display = 'block';
+    w.innerHTML = 'These characters switch the message to UCS-2: ' + bad.slice(0, 12).map((c) => '<code>' + show(c).replace(/</g, '&lt;') + '</code>').join(' ');
+  } else { w.style.display = 'none'; }
+}
+$('msg').addEventListener('input', update);
+$('fix').addEventListener('click', () => {
+  $('msg').value = $('msg').value.replace(/[‘’‚′]/g, "'").replace(/[“”„″]/g, '"').replace(/[–—]/g, '-').replace(/…/g, '...').replace(/ /g, ' ');
+  update();
+});
+update();
+</script>
+</body>
+</html>

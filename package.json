@@ -1,0 +1,9 @@
+{
+  "name": "sms-segment-counter",
+  "version": "1.0.0",
+  "description": "Count SMS segments and detect GSM-7 vs UCS-2 encoding (160/153 and 70/67 limits, extension characters, emoji).",
+  "main": "sms-segments.js",
+  "scripts": { "test": "node --test test.js" },
+  "keywords": ["sms", "gsm-7", "ucs-2", "segments", "character-limit", "otp"],
+  "license": "MIT"
+}

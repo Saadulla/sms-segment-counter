@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SMS Character Limit: GSM-7 vs UCS-2 and a Segment Counter in JavaScript</title>
+<meta name="description" content="The SMS character limit explained for developers - 160 GSM-7 or 70 UCS-2 characters, 153 and 67 per part when split, why emoji and smart quotes force UCS-2, what that does to cost, and a tested JavaScript segment counter.">
+<link rel="canonical" href="https://saadulla.github.io/sms-segment-counter/sms-character-limit.html">
+<meta property="og:title" content="SMS Character Limit: GSM-7 vs UCS-2 and a Segment Counter in JavaScript">
+<meta property="og:description" content="The SMS character limit explained for developers - 160 GSM-7 or 70 UCS-2 characters, 153 and 67 per part when split, why emoji and smart quotes force UCS-2, what that does to cost, and a tested JavaScript segment counter.">
+<meta property="og:type" content="article">
+<style>
+:root{--bg:#fbfaf7;--fg:#1d1d1f;--muted:#5b5b60;--accent:#0b6bcb;--line:#e3e1dc}
+@media (prefers-color-scheme:dark){:root{--bg:#141416;--fg:#ececee;--muted:#a3a3a8;--accent:#6cb4ff;--line:#2b2b30}}
+body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.65 Georgia,"Times New Roman",serif}
+main{max-width:720px;margin:0 auto;padding:32px 16px 64px}
+h1{font:700 2rem/1.25 system-ui,sans-serif;margin:0 0 20px} h2{font:700 1.35rem/1.3 system-ui,sans-serif;margin:36px 0 8px}
+a{color:var(--accent)} table{border-collapse:collapse;width:100%;font:15px system-ui,sans-serif} th,td{border-bottom:1px solid var(--line);padding:8px 6px;text-align:left}
+pre{overflow:auto;background:rgba(127,127,127,.12);padding:12px;border-radius:6px} code{font-size:.9em}
+footer{margin-top:48px;color:var(--muted);font:14px system-ui,sans-serif}
+</style>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "What is the SMS character limit?", "acceptedAnswer": {"@type": "Answer", "text": "160 characters in GSM-7, or 70 if any character needs UCS-2. Split messages carry 153 or 67 characters per part."}}, {"@type": "Question", "name": "Why is my short SMS being sent as two messages?", "acceptedAnswer": {"@type": "Answer", "text": "Usually one character outside GSM-7, such as a curly apostrophe or an emoji, switched it to UCS-2, where a single message holds only 70."}}, {"@type": "Question", "name": "How many characters does an emoji use in an SMS?", "acceptedAnswer": {"@type": "Answer", "text": "Most count as two UCS-2 units, flags and combined emoji as more, and any emoji switches the message to UCS-2."}}]}</script>
+</head>
+<body>
+<main>
+<h1>SMS Character Limit: GSM-7 vs UCS-2 and a Segment Counter in JavaScript</h1>
+<p>The SMS character limit is 160 characters when every character is in the GSM-7 alphabet, and 70 when even one isn't, because the whole message then goes out as UCS-2. Longer messages are split into parts of 153 (GSM-7) or 67 (UCS-2) characters, and every part is billed as a separate SMS. So one emoji or one curly apostrophe can turn a one-part verification message into two. Below is why, plus a small JavaScript part counter tested with Node.js 26.5.</p>
+<h2>Where 160 and 70 come from</h2>
+<p>A single SMS carries 140 bytes of text. GSM-7 packs each character into 7 bits, so 140 × 8 / 7 = 160 characters. UCS-2 uses 16 bits per character, so 140 / 2 = 70.</p>
+<p>Longer messages are split into parts, each starting with a small header that tells the phone how to reassemble them. The header takes space from the text:</p>
+<table>
+<thead>
+<tr>
+<th>Encoding</th>
+<th>One message</th>
+<th>Per part when split</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GSM-7</td>
+<td>160 characters</td>
+<td>153 characters</td>
+</tr>
+<tr>
+<td>UCS-2</td>
+<td>70 characters</td>
+<td>67 characters</td>
+</tr>
+</tbody>
+</table>
+<h2>The SMS character limit drops when one character isn't GSM-7</h2>
+<p>GSM-7 covers basic Latin letters, digits, common punctuation and a few accented and Greek letters. Anything outside it switches the entire message to UCS-2. Common culprits:</p>
+<ul>
+<li><strong>Emoji.</strong> Most count as two UCS-2 units; flags and combined emoji count as more.</li>
+<li><strong>Smart punctuation.</strong> Curly quotes, the ellipsis character and long dashes, often added by word processors and editors.</li>
+<li><strong>Many accented letters.</strong> é, ü, ñ, å and ö are in GSM-7; ê, á, í, ó and ł aren't.</li>
+<li><strong>Non-Latin scripts</strong> such as Cyrillic, Arabic or Chinese.</li>
+<li><strong>Invisible characters</strong>, like a non-breaking space pasted from a web page.</li>
+</ul>
+<p>A few GSM-7 characters sit in an extension table and cost two slots each: <code>€ [ ] { } \ ~ ^ |</code>. Some networks also support national language tables; the counter below assumes the default alphabet.</p>
+<h2>What it does to cost</h2>
+<p>Every part is charged as a message. This 82-character code message is GSM-7 and fits in one SMS:</p>
+<blockquote>
+<p>Your Example code is 482913. It expires in 10 minutes. Don't share it with anyone.</p>
+</blockquote>
+<p>Paste it from a document that curled the apostrophe and it becomes UCS-2, over the 70 limit, so it goes out as two parts. That doubles the cost of every code, on every retry, in every country.</p>
+<h2>A segment counter in JavaScript</h2>
+<pre><code class="language-js">// sms-segments.js
+// GSM 03.38 default alphabet (without the escape code) and its extension table.
+const GSM7_BASIC = new Set(
+  '@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !&quot;#¤%&amp;\'()*+,-./0123456789:;&lt;=&gt;?' +
+  '¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà'
+);
+const GSM7_EXTENDED = new Set('\f^{}\\[~]|€'); // each one costs 2 septets
+
+function smsSegments(text) {
+  const chars = Array.from(text); // code points, so an emoji is one item
+  const gsm7 = chars.every((c) =&gt; GSM7_BASIC.has(c) || GSM7_EXTENDED.has(c));
+
+  // GSM-7 counts septets; UCS-2 counts UTF-16 code units (an emoji is 2).
+  const costs = chars.map((c) =&gt; (gsm7 ? (GSM7_EXTENDED.has(c) ? 2 : 1) : c.length));
+  const units = costs.reduce((sum, n) =&gt; sum + n, 0);
+  const single = gsm7 ? 160 : 70;
+  const perPart = gsm7 ? 153 : 67;
+
+  let segments = 1;
+  if (units &gt; single) {
+    // Fill parts one character at a time, so an escape pair or an
+    // emoji is never cut in half between two parts.
+    let used = 0;
+    for (const n of costs) {
+      if (used + n &gt; perPart) {
+        segments += 1;
+        used = 0;
+      }
+      used += n;
+    }
+  }
+  return { encoding: gsm7 ? 'GSM-7' : 'UCS-2', units, segments };
+}
+
+// Which characters pushed the message out of GSM-7?
+function nonGsmChars(text) {
+  const found = Array.from(text).filter((c) =&gt; !GSM7_BASIC.has(c) &amp;&amp; !GSM7_EXTENDED.has(c));
+  return [...new Set(found)];
+}
+
+module.exports = { smsSegments, nonGsmChars };
+</code></pre>
+<p><code>Array.from</code> walks the string by code point, so an emoji is one character with a <code>length</code> of 2. The loop fills each part instead of dividing by 153 or 67, so a two-unit character that doesn't fit moves to the next part. Providers split slightly differently, so treat the result as an estimate.</p>
+<h2>Tests</h2>
+<pre><code class="language-js">// sms-segments.test.js
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const { smsSegments, nonGsmChars } = require('./sms-segments');
+
+test('GSM-7: 160 in one message, then parts of 153', () =&gt; {
+  assert.equal(smsSegments('a'.repeat(160)).segments, 1);
+  assert.equal(smsSegments('a'.repeat(161)).segments, 2);
+  // 306 septets, but the two-septet € can't straddle two parts
+  assert.equal(smsSegments('a'.repeat(152) + '€' + 'a'.repeat(152)).segments, 3);
+});
+
+test('one curly apostrophe turns one message into two', () =&gt; {
+  const otp = &quot;Your Example code is 482913. It expires in 10 minutes. Don't share it with anyone.&quot;;
+  const curly = otp.replace(&quot;'&quot;, '’');
+  assert.deepEqual(smsSegments(otp), { encoding: 'GSM-7', units: 82, segments: 1 });
+  assert.deepEqual(smsSegments(curly), { encoding: 'UCS-2', units: 82, segments: 2 });
+  assert.deepEqual(nonGsmChars(curly), ['’']);
+});
+
+test('UCS-2: 70 in one message, then parts of 67, emoji count as 2', () =&gt; {
+  assert.equal(smsSegments('ж'.repeat(70)).segments, 1);
+  assert.equal(smsSegments('ж'.repeat(71)).segments, 2);
+  assert.equal(smsSegments('Code 123456 👍').units, 14);
+});
+</code></pre>
+<p>Run it with <code>node --test</code> (output trimmed to the results):</p>
+<pre><code class="language-text">✔ GSM-7: 160 in one message, then parts of 153
+✔ one curly apostrophe turns one message into two
+✔ UCS-2: 70 in one message, then parts of 67, emoji count as 2
+ℹ tests 3
+ℹ pass 3
+ℹ fail 0
+</code></pre>
+<h2>Keeping code messages in one part</h2>
+<ul>
+<li>Replace smart quotes before sending, and run <code>nonGsmChars()</code> over every template in a unit test.</li>
+<li>Leave emoji out of verification texts and put the code near the start.</li>
+<li>Check every translation: one accented letter can double the part count.</li>
+<li>Check whether your provider can swap look-alike characters automatically.</li>
+</ul>
+<p>Only a real phone shows what actually arrives. For a quick manual check, the free public numbers on <a href="https://tempsmss.com/">Temp SMS</a> show incoming texts on a web page. Anyone can read those messages and the numbers are retired over time, so use them only for throwaway test accounts, never banking, a main email or two-factor authentication.</p>
+<h2>FAQ</h2>
+<p><strong>What is the SMS character limit?</strong>
+160 characters in GSM-7, or 70 if any character needs UCS-2. Split messages carry 153 or 67 characters per part.</p>
+<p><strong>Why is my short SMS being sent as two messages?</strong>
+Usually one character outside GSM-7, such as a curly apostrophe or an emoji, switched it to UCS-2, where a single message holds only 70.</p>
+<p><strong>How many characters does an emoji use in an SMS?</strong>
+Most count as two UCS-2 units, flags and combined emoji as more, and any emoji switches the message to UCS-2.</p>
+<footer><p>Try it: <a href="https://saadulla.github.io/sms-segment-counter/">SMS character counter</a> · Code: <a href="https://github.com/Saadulla/sms-segment-counter">github.com/Saadulla/sms-segment-counter</a> (MIT)</p><p>More: <a href="https://saadulla.github.io/sms-otp-testing-examples/sms-delivery-failures.html">Why SMS messages fail to deliver</a> · <a href="https://tempsmss-guides.pages.dev/alphanumeric-sender-id">Alphanumeric sender ID explained</a> · Real-network checks: <a href="https://tempsmss.com/">Temp SMS</a> public test numbers (messages are public).</p></footer>
+</main>
+</body>
+</html>
