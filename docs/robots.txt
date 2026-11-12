@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://saadulla.github.io/sms-segment-counter/sitemap.xml

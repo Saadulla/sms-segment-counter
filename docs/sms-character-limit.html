@@ -18,13 +18,22 @@ h1{font:700 2rem/1.25 system-ui,sans-serif;margin:0 0 20px} h2{font:700 1.35rem/
 a{color:var(--accent)} table{border-collapse:collapse;width:100%;font:15px system-ui,sans-serif} th,td{border-bottom:1px solid var(--line);padding:8px 6px;text-align:left}
 pre{overflow:auto;background:rgba(127,127,127,.12);padding:12px;border-radius:6px} code{font-size:.9em}
 footer{margin-top:48px;color:var(--muted);font:14px system-ui,sans-serif}
+figure{margin:24px 0} figcaption{color:#5b5b60;font:14px system-ui,sans-serif;margin-top:6px}
 </style>
 <script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "What is the SMS character limit?", "acceptedAnswer": {"@type": "Answer", "text": "160 characters in GSM-7, or 70 if any character needs UCS-2. Split messages carry 153 or 67 characters per part."}}, {"@type": "Question", "name": "Why is my short SMS being sent as two messages?", "acceptedAnswer": {"@type": "Answer", "text": "Usually one character outside GSM-7, such as a curly apostrophe or an emoji, switched it to UCS-2, where a single message holds only 70."}}, {"@type": "Question", "name": "How many characters does an emoji use in an SMS?", "acceptedAnswer": {"@type": "Answer", "text": "Most count as two UCS-2 units, flags and combined emoji as more, and any emoji switches the message to UCS-2."}}]}</script>
+<meta property="og:image" content="https://saadulla.github.io/sms-segment-counter/sms-character-limit.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="SMS Character Limit: GSM-7 vs UCS-2 and a Segment Counter in JavaScript: Where 160 and 70 come from; The SMS character limit">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "SMS Character Limit: GSM-7 vs UCS-2 and a Segment Counter in JavaScript", "description": "The SMS character limit explained for developers - 160 GSM-7 or 70 UCS-2 characters, 153 and 67 per part when split, why emoji and smart quotes force UCS-2, what that does to cost, and a tested JavaScript segment counter.", "author": {"@type": "Organization", "name": "Temp SMS", "url": "https://tempsmss.com/"}, "publisher": {"@type": "Organization", "name": "Temp SMS", "url": "https://tempsmss.com/"}, "mainEntityOfPage": "https://saadulla.github.io/sms-segment-counter/sms-character-limit.html", "inLanguage": "en", "image": {"@type": "ImageObject", "url": "https://saadulla.github.io/sms-segment-counter/sms-character-limit.png", "width": 1200, "height": 630, "caption": "SMS Character Limit: GSM-7 vs UCS-2 and a Segment Counter in JavaScript: Where 160 and 70 come from; The SMS character limit"}}</script>
 </head>
 <body>
 <main>
 <h1>SMS Character Limit: GSM-7 vs UCS-2 and a Segment Counter in JavaScript</h1>
 <p>The SMS character limit is 160 characters when every character is in the GSM-7 alphabet, and 70 when even one isn't, because the whole message then goes out as UCS-2. Longer messages are split into parts of 153 (GSM-7) or 67 (UCS-2) characters, and every part is billed as a separate SMS. So one emoji or one curly apostrophe can turn a one-part verification message into two. Below is why, plus a small JavaScript part counter tested with Node.js 26.5.</p>
+<figure><img src="sms-character-limit.png" alt="SMS Character Limit: GSM-7 vs UCS-2 and a Segment Counter in JavaScript: Where 160 and 70 come from; The SMS character limit" width="1200" height="630" decoding="async" style="width:100%;height:auto;border-radius:8px"><figcaption>SMS Character Limit</figcaption></figure>
 <h2>Where 160 and 70 come from</h2>
 <p>A single SMS carries 140 bytes of text. GSM-7 packs each character into 7 bits, so 140 × 8 / 7 = 160 characters. UCS-2 uses 16 bits per character, so 140 / 2 = 70.</p>
 <p>Longer messages are split into parts, each starting with a small header that tells the phone how to reassemble them. The header takes space from the text:</p>
